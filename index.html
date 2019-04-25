@@ -5,7 +5,7 @@
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 
 <div id="app">
-	<cpugraph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15 />
+	<cpugraph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15></cpugraph>
 	<table class="table">
 		<thead>
 			<tr>
@@ -40,7 +40,7 @@
 <script type="text/javascript">
 
 const getprocesses = (t) =>
-	t.trim().split("\n").map( x => x.trim().split(/\s+/) ).map(s => {
+	t.map( x => x.trim().split(/\s+/) ).map(s => {
 		let k = {};
 		[k.pid, k.cpu, k.mem, ...k.name] = s;
 		k.name = k.name.join(" ");
@@ -48,12 +48,17 @@ const getprocesses = (t) =>
 	}).sort( (x,y) => ((parseFloat(x.cpu) > parseFloat(y.cpu)? -1 : 1) ) )
 
 function getdata(t){
-	reqlist = ["cpuload",]
-	const inreq = (x) => reqlist.indexOf(x) != -1
-	fetch("http://127.0.0.1:8080/"+reqlist.join("/")).then( r => r.json().then(x => {
+	let r1 = [...window.reqlist]
+	if ( r1.length == 0 ) return
+	const inreq = (x) => window.reqlist.indexOf(x) != -1
+	fetch("http://127.0.0.1:8080/"+r1.join("/")).then( r => r.json().then(x => {
 		if ( inreq("cpuload") )
-			app.cpuload = x.cpuload;
+			Object.assign(app.cpuload, x.cpuload);
+		if ( inreq("ps") )
+			app.proceses = getprocesses(x.ps); 
+		window.reqlist.length = 0;
 	}) )
+	
 }
 
 Vue.component('cpugraph', {
@@ -87,8 +92,6 @@ app = new Vue({
 	data:{
 		cpuload:{
 			"cpu1":10,
-			"cpu2":15,
-			"cpu3":20,
 		},
 		proceses: [
 			{name:"abc",pid:"12",cpu:"23",mem:"12"},
@@ -101,5 +104,12 @@ app = new Vue({
 		async getdata (){ this.proceses = await getdata(); }
 	}*/
 })
+window.reqlist = ["cpuload","ps"];
+
+
 setInterval(getdata,1000)
+setTimeout(()=>{
+	setInterval(() => {window.reqlist.push("cpuload"); console.log("sent")} ,1000);
+	setInterval(() => {window.reqlist.push("ps")} ,10000);
+},100);
 </script>

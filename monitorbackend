@@ -105,6 +105,7 @@ done & CPUWATCHPID=$!
 
 while nc -l 8080 <$PIPE | {
 	header=$( head -n 1 | awk "{print \$2}" | tr "/" "\n" )
+	echo $header >&2
 	RSP=$({
 		inside header ps && {
 			psb=$(ps -eo pid,pcpu,pmem,cmd) 
