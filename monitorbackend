@@ -1,0 +1,128 @@
+#!/bin/bash
+inside(){
+	grep -q $2 <<<"${!1}" && return 0 || return 1
+}
+jsonify_rows(){
+	echo -ne "["
+	cat - | sed 's/\"/\\"/g' |  sed "s/'/\\'/g" | sed "s/^/\"/;s/$/\"/" | tr "\n" ","
+	echo -ne "]"
+}
+
+j_dictkey(){
+	echo -ne "\"${1}\":"
+	cat -
+	echo -ne ","
+}
+j_sep(){
+	cat -
+	echo -ne ','
+}
+
+j_dict(){
+	{
+		echo -ne "{"
+		cat - 
+		echo -ne "}"
+	} | sed "s/,]/]/g;s/,}/}/g"
+}
+
+j_list(){
+	{
+		echo -ne "["
+		cat - 
+		echo -ne "]"
+	} | sed "s/,]/]/g;s/,}/}/g"
+}
+
+j_dict_namerows(){
+	local rmnames=(${*})
+	local i=0
+	while read line; do
+		((i=0))
+		for x in ${line} ; do
+			 echo -ne $x | j_dictkey ${rmnames[${i}]}
+			((i++))
+		done | j_dict | j_sep
+	done | j_list
+}
+
+function clean {
+	rm $PIPE $CPUUS
+	kill $CPUWATCHPID
+}
+
+trap clean EXIT
+
+cpuload(){
+	while read cpu usage ; do
+		echo $usage | j_dictkey $cpu
+	done <$CPUUS | j_dict
+}
+
+
+rsp(){
+	local len=$(wc -c <<<${!1})
+	local headers=(
+		"Access-Control-Allow-Origin: *"
+		"Content-Encoding: identity"
+		"Connection: keep-alive"
+		"Content-type: application/json; charset=utf-8"
+		"Content-Length: ${len}"
+	)
+
+	echo -en "HTTP/1.1 200 OK\r\n"
+	printf '%s\n' "${headers[@]}"
+	echo -en "\n"
+	cat <<<"${!1}"
+}
+
+PIPE=$(mktemp -u)
+CPUUS=$(mktemp)
+mkfifo ${PIPE}
+
+
+while true ; do
+	CPUSTATB=(${CPUSTAT[@]})
+	CPUSTAT=($(
+		grep cpu < /proc/stat | while read cpu user nice system idle iowait irq softirq steal guest ; do 
+			cpu_active=$((user+system+nice+softirq+steal))
+			cpu_total=$((cpu_active+idle+iowait))
+			echo "${cpu}|${cpu_active}|${cpu_total}"
+		done 
+	))
+	l=${#CPUSTAT[@]}
+	for (( i=0; i < l ; i++ )) do
+		IFS="|" read cpuN activeN totalN <<<"${CPUSTAT[${i}]}"
+		IFS="|" read cpuB activeB totalB <<<"${CPUSTATB[${i}]}"
+		[[ $((totalN - totalB)) == 0 ]] ||
+			echo $cpuN $(( 100 * (activeN-activeB)/(totalN - totalB) ))
+	done > $CPUUS
+	
+	sleep 1
+
+done & CPUWATCHPID=$!
+
+
+while nc -l 8080 <$PIPE | {
+	header=$( head -n 1 | awk "{print \$2}" | tr "/" "\n" )
+	RSP=$({
+		inside header ps && {
+			psb=$(ps -eo pid,pcpu,pmem,cmd) 
+			sed "1d;s/[ \t]\+/ /g;s/^ //" <<<"${psb}" | jsonify_rows | j_dictkey ps;
+		}
+
+		inside header stat &&
+			cat /proc/stat | jsonify_rows | j_dictkey stat;
+
+		inside header mem &&
+			free -m | sed "1d;s/[ \t]\+/ /g;s/^ //;s/.*://" | \
+				j_dict_namerows all used free shared cache avaiable | j_dictkey mem;
+
+		inside header cpuload &&
+			cpuload | j_dictkey cpuload
+
+	} | j_dict)
+	rsp RSP
+} > $PIPE; do
+  echo "================================================"
+done

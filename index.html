@@ -1,0 +1,105 @@
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+<div id="app">
+	<cpugraph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15 />
+	<table class="table">
+		<thead>
+			<tr>
+				<td>id</td>
+				<td>cmd</td>
+				<td>pid</td>
+				<td>cpu</td>
+				<td>mem</td>
+			</tr>
+		</thead>
+		<tbody style="height: 100px !important;overflow: scroll;">
+			<tr v-for="(i,ind) in proceses">
+				<td> {{ind}}</td>
+				<td> {{i.name}} </td>
+				<td> {{i.pid}} </td>
+				<td> {{i.cpu}} </td>
+				<td> {{i.mem}} </td>
+			</tr>
+		</tbody>
+	</table>
+</div>
+
+<script type="text/x-template" id="cpugraph-template">
+  <svg :width="width" :height="height" style="border: 1px solid black; margin-right: 10px;" >
+	  <text :x="width - 40" y="15" fill="black">{{name}}</text>
+	  <g>
+		<polyline :points="points"  fill="none" stroke="black" />
+	   </g>
+   </svg>
+</script>
+
+<script type="text/javascript">
+
+const getprocesses = (t) =>
+	t.trim().split("\n").map( x => x.trim().split(/\s+/) ).map(s => {
+		let k = {};
+		[k.pid, k.cpu, k.mem, ...k.name] = s;
+		k.name = k.name.join(" ");
+		return k;
+	}).sort( (x,y) => ((parseFloat(x.cpu) > parseFloat(y.cpu)? -1 : 1) ) )
+
+function getdata(t){
+	reqlist = ["cpuload",]
+	const inreq = (x) => reqlist.indexOf(x) != -1
+	fetch("http://127.0.0.1:8080/"+reqlist.join("/")).then( r => r.json().then(x => {
+		if ( inreq("cpuload") )
+			app.cpuload = x.cpuload;
+	}) )
+}
+
+Vue.component('cpugraph', {
+	props: {
+		'load':Number,
+		'width':Number,
+		'height':Number,
+		"density":Number,
+		"name":String
+	},
+	template: '#cpugraph-template',
+	computed:{
+		points(){
+			return this.history.map( (x,_i) => (this.width * _i / this.density) + ',' + ( 1 - x * 0.01 ) * this.height ).join(" ")
+		},
+	},
+	data: () => ({
+		history: new Array(10).fill(0),
+	}),
+	watch:{
+		load(lnew,lold) {
+			if (this.history.length >= this.density )
+				this.history.shift();
+			this.history.push(lnew);
+		}
+	},
+})
+
+app = new Vue({
+	el: '#app',
+	data:{
+		cpuload:{
+			"cpu1":10,
+			"cpu2":15,
+			"cpu3":20,
+		},
+		proceses: [
+			{name:"abc",pid:"12",cpu:"23",mem:"12"},
+			{name:"abc",pid:"12",cpu:"23",mem:"12"},
+			{name:"abc",pid:"12",cpu:"23",mem:"12"},
+			{name:"abc",pid:"12",cpu:"23",mem:"12"},
+		]
+	},
+/*	methods: {
+		async getdata (){ this.proceses = await getdata(); }
+	}*/
+})
+setInterval(getdata,1000)
+</script>
