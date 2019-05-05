@@ -37,10 +37,12 @@ j_list(){
 j_dict_namerows(){
 	local rmnames=(${*})
 	local i=0
+	local m="[^0-9]"
 	while read line; do
 		((i=0))
 		for x in ${line} ; do
-			 echo -ne $x | j_dictkey ${rmnames[${i}]}
+			[[ $x  =~ $m ]] && x="\"${x}\"" 
+			echo -ne "${x}" | j_dictkey ${rmnames[${i}]}
 			((i++))
 		done | j_dict | j_sep
 	done | j_list
@@ -126,6 +128,8 @@ while nc -l 8080 <$PIPE | {
 			inside header cpuload &&
 				cpuload | j_dictkey cpuload
 
+			inside header fs && 
+					df -m | grep "^/dev" | j_dict_namerows fs 1mbl used ava usedpr mp | j_dictkey fs
 		} | j_dict)
 		rsp RSP application/json
 	fi
