@@ -5,7 +5,11 @@
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 
 <div id="app">
-	<cpugraph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15></cpugraph>
+	<h2>Processors:</h2>
+	<graph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15></graph>
+	<br/><h2>Memory:</h2>
+	<graph :load=mem_av name="memory" :width=150 :height=150 :density=15></graph>
+	<br/><h2>Processes:</h2>
 	<table class="table">
 		<thead>
 			<tr>
@@ -28,13 +32,20 @@
 	</table>
 </div>
 
-<script type="text/x-template" id="cpugraph-template">
-  <svg :width="width" :height="height" style="border: 1px solid black; margin-right: 10px;" >
-	  <text :x="width - 40" y="15" fill="black">{{name}}</text>
-	  <g>
-		<polyline :points="points"  fill="none" stroke="black" />
-	   </g>
-   </svg>
+<script type="text/x-template" id="graph-template">
+	<svg :width="width" :height="height" style="border: 1px solid black; margin-right: 10px; margin-top: 10px;" >
+		<pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+			<path :d='"M " + gridgap + " 0 L 0 0 0 " +  gridgap' fill="none" stroke="gray" stroke-width="0.5"/>
+		</pattern>
+		<rect :width=width :height=height fill="url(#smallGrid)"/>
+
+		<rect width="100%" height="100%" fill="url(#grid)" />
+		<text :x="width - 5" text-anchor="end" y="15" fill="black">{{name}}</text>
+		<g>
+			<polyline :points="points"  fill="none" stroke="blue" stroke-width=3 />
+			<polygon :points="( 0+ ',' + height ) +' '+ points + ' ' + ( width + ',' + height )"  fill="lightblue"/>
+		</g>
+	</svg>
 </script>
 
 <script type="text/javascript">
@@ -48,20 +59,33 @@ const getprocesses = (t) =>
 	}).sort( (x,y) => ((parseFloat(x.cpu) > parseFloat(y.cpu)? -1 : 1) ) )
 
 function getdata(t){
-	let r1 = [...window.reqlist]
+	let r1 = [...new Set(window.reqlist)]
 	if ( r1.length == 0 ) return
 	const inreq = (x) => window.reqlist.indexOf(x) != -1
+
 	fetch("http://127.0.0.1:8080/"+r1.join("/")).then( r => r.json().then(x => {
-		if ( inreq("cpuload") )
+		if ( inreq("cpuload") ){
+			for ( k of Object.keys(x.cpuload) )
+				if ( ! k.includes("cpu") )
+					delete x.cpuload[k]
 			Object.assign(app.cpuload, x.cpuload);
+			app.$children.filter(x => x.name.includes("cpu")).map(x => x.savest())
+		}
+
 		if ( inreq("ps") )
-			app.proceses = getprocesses(x.ps); 
+			app.proceses = getprocesses(x.ps);
+
+		if ( inreq("mem") ){
+			app.mem_av = 100 * (x.mem[0].all - x.mem[0].free) / x.mem[0].all ;
+			app.$children.filter(x => x.name.includes("mem")).map(x => x.savest())
+		} 
+
 		window.reqlist.length = 0;
 	}) )
 	
 }
 
-Vue.component('cpugraph', {
+window.graph = Vue.component('graph', {
 	props: {
 		'load':Number,
 		'width':Number,
@@ -69,23 +93,31 @@ Vue.component('cpugraph', {
 		"density":Number,
 		"name":String
 	},
-	template: '#cpugraph-template',
-	computed:{
-		points(){
-			return this.history.map( (x,_i) => (this.width * _i / this.density) + ',' + ( 1 - x * 0.01 ) * this.height ).join(" ")
+	template: '#graph-template',
+	computed: {
+		points: function(){
+			return this.history.map( (x,_i) =>
+					( this.gridgap * _i ) + ',' + ( 1 - x * 0.01 ) * this.height 
+				).join(" ");
 		},
+		gridgap: function(){
+			return this.width / this.density
+		}
 	},
+
 	data: () => ({
 		history: new Array(10).fill(0),
 	}),
-	watch:{
-		load(lnew,lold) {
-			if (this.history.length >= this.density )
+
+	methods:{
+		savest() {
+			if (this.history.length > this.density )
 				this.history.shift();
-			this.history.push(lnew);
+			this.history.push(this.load);
 		}
 	},
-})
+
+});
 
 app = new Vue({
 	el: '#app',
@@ -94,22 +126,18 @@ app = new Vue({
 			"cpu1":10,
 		},
 		proceses: [
-			{name:"abc",pid:"12",cpu:"23",mem:"12"},
-			{name:"abc",pid:"12",cpu:"23",mem:"12"},
-			{name:"abc",pid:"12",cpu:"23",mem:"12"},
-			{name:"abc",pid:"12",cpu:"23",mem:"12"},
-		]
+			{name:"process1",pid:"12",cpu:"23",mem:"12"},
+		],
+		mem_av: 0
 	},
-/*	methods: {
-		async getdata (){ this.proceses = await getdata(); }
-	}*/
 })
-window.reqlist = ["cpuload","ps"];
 
+window.reqlist = ["cpuload","ps"];
 
 setInterval(getdata,1000)
 setTimeout(()=>{
-	setInterval(() => {window.reqlist.push("cpuload"); console.log("sent")} ,1000);
-	setInterval(() => {window.reqlist.push("ps")} ,10000);
+	setInterval(() => window.reqlist.push("cpuload") ,1000);
+	setInterval(() => window.reqlist.push("mem") ,1000);
+	setInterval(() => window.reqlist.push("ps") ,10000);
 },100);
 </script>

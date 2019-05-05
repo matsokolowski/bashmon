@@ -66,7 +66,7 @@ rsp(){
 		"Access-Control-Allow-Origin: *"
 		"Content-Encoding: identity"
 		"Connection: keep-alive"
-		"Content-type: application/json; charset=utf-8"
+		"Content-type: ${2}; charset=utf-8"
 		"Content-Length: ${len}"
 	)
 
@@ -106,24 +106,29 @@ done & CPUWATCHPID=$!
 while nc -l 8080 <$PIPE | {
 	header=$( head -n 1 | awk "{print \$2}" | tr "/" "\n" )
 	echo $header >&2
-	RSP=$({
-		inside header ps && {
-			psb=$(ps -eo pid,pcpu,pmem,cmd) 
-			sed "1d;s/[ \t]\+/ /g;s/^ //" <<<"${psb}" | jsonify_rows | j_dictkey ps;
-		}
+	if [ -z "$header" ] ; then
+		read -r -d '' indexhtml <./index.html
+		rsp indexhtml text/html
+	else
+		RSP=$({
+			inside header ps && {
+				psb=$(ps -eo pid,pcpu,pmem,cmd) 
+				sed "1d;s/[ \t]\+/ /g;s/^ //" <<<"${psb}" | jsonify_rows | j_dictkey ps;
+			}
 
-		inside header stat &&
-			cat /proc/stat | jsonify_rows | j_dictkey stat;
+			inside header stat &&
+				cat /proc/stat | jsonify_rows | j_dictkey stat;
 
-		inside header mem &&
-			free -m | sed "1d;s/[ \t]\+/ /g;s/^ //;s/.*://" | \
-				j_dict_namerows all used free shared cache avaiable | j_dictkey mem;
+			inside header mem &&
+				free -m | sed "1d;s/[ \t]\+/ /g;s/^ //;s/.*://" | \
+					j_dict_namerows all used free shared cache avaiable | j_dictkey mem;
 
-		inside header cpuload &&
-			cpuload | j_dictkey cpuload
+			inside header cpuload &&
+				cpuload | j_dictkey cpuload
 
-	} | j_dict)
-	rsp RSP
+		} | j_dict)
+		rsp RSP application/json
+	fi
 } > $PIPE; do
   echo "================================================"
 done
