@@ -9,6 +9,7 @@
 	<graph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15></graph>
 	<br/><h2>Memory:</h2>
 	<graph :load=mem_av name="memory" :width=150 :height=150 :density=15></graph>
+	<graph :load=swap_av name="swap" :width=150 :height=150 :density=15></graph>
 	<br/><h2>Processes:</h2>
 	<table class="table">
 		<thead>
@@ -42,13 +43,37 @@
 		<rect width="100%" height="100%" fill="url(#grid)" />
 		<text :x="width - 5" text-anchor="end" y="15" fill="black">{{name}}</text>
 		<g>
-			<polyline :points="points"  fill="none" stroke="blue" stroke-width=3 />
-			<polygon :points="( 0+ ',' + height ) +' '+ points + ' ' + ( width + ',' + height )"  fill="lightblue"/>
+			<polyline :points="points"  fill="none" :stroke="color" stroke-width=3 />
+			<polygon :points="( 0+ ',' + height ) +' '+ points + ' ' + ( width + ',' + height )"  :fill="lcolor"/>
 		</g>
 	</svg>
 </script>
 
 <script type="text/javascript">
+
+function randomColor(brightness){
+  function randomChannel(brightness){
+    var r = 255-brightness;
+    var n = 0|((Math.random() * r) + brightness);
+    var s = n.toString(16);
+    return (s.length==1) ? '0'+s : s;
+  }
+  return '#' + randomChannel(brightness) + randomChannel(brightness) + randomChannel(brightness);
+}
+
+function colorLuminance(hex, lum) {
+  hex = String(hex).replace(/[^0-9a-f]/gi, "");
+  if (hex.length < 6) hex = hex.replace(/(.)/g, '$1$1');
+  lum = lum || 0;
+  var rgb = "#", c;
+  for (var i = 0; i < 3; ++i) {
+    c = parseInt(hex.substr(i * 2, 2), 16);
+    c = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
+    rgb += ("00" + c).substr(c.length);
+  }
+  return rgb;
+}
+
 
 const getprocesses = (t) =>
 	t.map( x => x.trim().split(/\s+/) ).map(s => {
@@ -102,11 +127,15 @@ window.graph = Vue.component('graph', {
 		},
 		gridgap: function(){
 			return this.width / this.density
+		},
+		lcolor:  function(){
+			return colorLuminance(this.color,0.7)
 		}
 	},
 
 	data: () => ({
 		history: new Array(10).fill(0),
+		color: randomColor(0)
 	}),
 
 	methods:{
@@ -128,7 +157,9 @@ app = new Vue({
 		proceses: [
 			{name:"process1",pid:"12",cpu:"23",mem:"12"},
 		],
-		mem_av: 0
+		mem_av: 0,
+		swap_av: 0,
+
 	},
 })
 
