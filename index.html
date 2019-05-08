@@ -118,7 +118,7 @@ function getdata(t){
 			app.proceses = getprocesses(x.ps);
 
 		if ( inreq("mem") ){
-			app.mem_av = 100 * (x.mem[0].all - x.mem[0].free) / x.mem[0].all ;
+			app.mem_av = 100 * (x.mem[0].all - x.mem[0].avaiable) / x.mem[0].all ;
 			app.$children.filter(x => ("name" in x && x.name.includes("mem"))).map(x => x.savest())
 		}
 
