@@ -131,8 +131,9 @@ while nc -l 8080 <$PIPE | {
 			inside header fs && 
 					df -m | grep "^/dev" | j_dict_namerows fs 1mbl used ava usedpr mp | j_dictkey fs
 		} | j_dict)
+		[ -z "${RSP}" ] && RSP="Invalid header"
 		rsp RSP application/json
 	fi
-} > $PIPE; do
+} > $PIPE || true; do
   echo "================================================"
 done

@@ -10,6 +10,8 @@
 	<br/><h2>Memory:</h2>
 	<graph :load=mem_av name="memory" :width=150 :height=150 :density=15></graph>
 	<graph :load=swap_av name="swap" :width=150 :height=150 :density=15></graph>
+	<h2>Filesystems:</h2>
+	<fsgraph :width=300 :height=25 :pr="x.usedpr" :name="x.fs" v-for="(x,i) in fs"></fsgraph>
 	<br/><h2>Processes:</h2>
 	<table class="table">
 		<thead>
@@ -41,20 +43,34 @@
 		<rect :width=width :height=height fill="url(#smallGrid)"/>
 
 		<rect width="100%" height="100%" fill="url(#grid)" />
-		<text :x="width - 5" text-anchor="end" y="15" fill="black">{{name}}</text>
 		<g>
 			<polyline :points="points"  fill="none" :stroke="color" stroke-width=3 />
 			<polygon :points="( 0+ ',' + height ) +' '+ points + ' ' + ( width + ',' + height )"  :fill="lcolor"/>
 		</g>
+		<text :x="width - 5" text-anchor="end" y="15" fill="black">{{name}}</text>
+		<text :x="5" text-anchor="begin" y="18" fill="black" font-size="20">{{Math.round(load) + "%"}}</text>
 	</svg>
+</script>
+
+<script type="text/x-template" id="fsgraph-template">
+	<div style="display: flex;">
+		<div style="float:left;padding-right:5px;"> <h5>{{name}}: </h5> </div>
+		<svg :width="width" :height="height" style="border: 1px solid black; margin-right: 2px; float:left;" >
+			<rect :width="width - 2" :height="height - 2" stroke="black" fill="rgb(128,128,255)" stroke-width="2" stroke-linecap="square"/>
+			<rect :width="width * prc - 2" fill="rgb(78,78,256)" :height=height />
+			<text :x="width * 0.5" :y="height * 0.7" text-anchor="middle" alignment-baseline="central"> 					{{pr}}
+			</text>
+
+		</svg>
+	</div>
 </script>
 
 <script type="text/javascript">
 
 function randomColor(brightness){
   function randomChannel(brightness){
-    var r = 255-brightness;
-    var n = 0|((Math.random() * r) + brightness);
+    var r = 255 - brightness;
+    var n = 0 | ((Math.random() * r) + brightness);
     var s = n.toString(16);
     return (s.length==1) ? '0'+s : s;
   }
@@ -94,7 +110,7 @@ function getdata(t){
 				if ( ! k.includes("cpu") )
 					delete x.cpuload[k]
 			Object.assign(app.cpuload, x.cpuload);
-			app.$children.filter(x => x.name.includes("cpu")).map(x => x.savest())
+			app.$children.filter(x => ("name" in x && x.name.includes("cpu"))).map(x => x.savest())
 		}
 
 		if ( inreq("ps") )
@@ -102,8 +118,12 @@ function getdata(t){
 
 		if ( inreq("mem") ){
 			app.mem_av = 100 * (x.mem[0].all - x.mem[0].free) / x.mem[0].all ;
-			app.$children.filter(x => x.name.includes("mem")).map(x => x.savest())
-		} 
+			app.$children.filter(x => ("name" in x && x.name.includes("mem"))).map(x => x.savest())
+		}
+
+		if ( inreq("fs") ){
+			app.fs = x.fs 
+		}
 
 		window.reqlist.length = 0;
 	}) )
@@ -148,6 +168,21 @@ window.graph = Vue.component('graph', {
 
 });
 
+window.fsgraph = Vue.component('fsgraph', {
+	props:{
+		width: Number,
+		height: Number,
+		name: String,
+		pr: String,
+	},
+	template: "#fsgraph-template",
+	computed:{
+		prc: function(){ 
+			return parseInt(this.pr.slice(0, this.pr.length - 1))*0.01;
+			return "5%"
+		},
+	}
+})
 app = new Vue({
 	el: '#app',
 	data:{
@@ -159,6 +194,7 @@ app = new Vue({
 		],
 		mem_av: 0,
 		swap_av: 0,
+		fs: {},
 
 	},
 })
@@ -170,5 +206,6 @@ setTimeout(()=>{
 	setInterval(() => window.reqlist.push("cpuload") ,1000);
 	setInterval(() => window.reqlist.push("mem") ,1000);
 	setInterval(() => window.reqlist.push("ps") ,10000);
+	setInterval(() => window.reqlist.push("fs") ,10000);
 },100);
 </script>
