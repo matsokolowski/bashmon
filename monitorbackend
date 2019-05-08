@@ -1,4 +1,5 @@
 #!/bin/bash
+#https://pasteboard.co/IdOsZrs.png
 inside(){
 	grep -q $2 <<<"${!1}" && return 0 || return 1
 }

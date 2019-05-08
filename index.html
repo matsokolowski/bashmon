@@ -3,36 +3,37 @@
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
-
-<div id="app">
-	<h2>Processors:</h2>
-	<graph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15></graph>
-	<br/><h2>Memory:</h2>
-	<graph :load=mem_av name="memory" :width=150 :height=150 :density=15></graph>
-	<graph :load=swap_av name="swap" :width=150 :height=150 :density=15></graph>
-	<h2>Filesystems:</h2>
-	<fsgraph :width=300 :height=25 :pr="x.usedpr" :name="x.fs" v-for="(x,i) in fs"></fsgraph>
-	<br/><h2>Processes:</h2>
-	<table class="table">
-		<thead>
-			<tr>
-				<td>id</td>
-				<td>cmd</td>
-				<td>pid</td>
-				<td>cpu</td>
-				<td>mem</td>
-			</tr>
-		</thead>
-		<tbody style="height: 100px !important;overflow: scroll;">
-			<tr v-for="(i,ind) in proceses">
-				<td> {{ind}}</td>
-				<td> {{i.name}} </td>
-				<td> {{i.pid}} </td>
-				<td> {{i.cpu}} </td>
-				<td> {{i.mem}} </td>
-			</tr>
-		</tbody>
-	</table>
+<div class="container">
+	<div id="app">
+		<p><h2>Processors:</h2></p>
+		<graph v-for="(load,name) in cpuload" :load=load :name=name :width=150 :height=150 :density=15></graph>
+		<p><h2>Memory:</h2></p>
+		<graph :load=mem_av name="memory" :width=150 :height=150 :density=15></graph>
+		<graph :load=swap_av name="swap" :width=150 :height=150 :density=15></graph>
+		<p><h2>Filesystems:</h2></p>
+		<fsgraph :width=300 :height=25 :pr="x.usedpr" :name="x.fs" v-for="(x,i) in fs"></fsgraph>
+		<br/><p><h2>Processes:</h2></p>
+		<table class="table">
+			<thead>
+				<tr>
+					<td>id</td>
+					<td>cmd</td>
+					<td>pid</td>
+					<td>cpu</td>
+					<td>mem</td>
+				</tr>
+			</thead>
+			<tbody style="height: 100px !important;overflow: scroll;">
+				<tr v-for="(i,ind) in proceses.slice(0,10)">
+					<td> {{ind}}</td>
+					<td> {{i.name}} </td>
+					<td> {{i.pid}} </td>
+					<td> {{i.cpu}} </td>
+					<td> {{i.mem}} </td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 </div>
 
 <script type="text/x-template" id="graph-template">
@@ -55,9 +56,9 @@
 <script type="text/x-template" id="fsgraph-template">
 	<div style="display: flex;">
 		<div style="float:left;padding-right:5px;"> <h5>{{name}}: </h5> </div>
-		<svg :width="width" :height="height" style="border: 1px solid black; margin-right: 2px; float:left;" >
-			<rect :width="width - 2" :height="height - 2" stroke="black" fill="rgb(128,128,255)" stroke-width="2" stroke-linecap="square"/>
-			<rect :width="width * prc - 2" fill="rgb(78,78,256)" :height=height />
+		<svg :width="width" :height="height" style="border: 2px solid black; margin-right: 2px; float:left;" >
+			<rect :width="width" :height="height - 2" stroke="black" fill="rgb(128,128,255)"/>
+			<rect :width="width * prc" fill="rgb(78,78,256)" :height=height />
 			<text :x="width * 0.5" :y="height * 0.7" text-anchor="middle" alignment-baseline="central"> 					{{pr}}
 			</text>
 
@@ -104,7 +105,7 @@ function getdata(t){
 	if ( r1.length == 0 ) return
 	const inreq = (x) => window.reqlist.indexOf(x) != -1
 
-	fetch("http://127.0.0.1:8080/"+r1.join("/")).then( r => r.json().then(x => {
+	fetch(`http://${window.location.hostname}:8080/`+r1.join("/")).then( r => r.json().then(x => {
 		if ( inreq("cpuload") ){
 			for ( k of Object.keys(x.cpuload) )
 				if ( ! k.includes("cpu") )
