@@ -6,4 +6,4 @@ chmod +x ./monitorbackend
 ```
 Type in http://127.0.0.1:8080/ in your browser
 
-<img src="https://i.ibb.co/ZBwP6jv/Screenshot-2019-05-08-Screenshot.png" alt="Screenshot-2019-05-08-Screenshot" border="0">
+<img src="https://i.ibb.co/8YNxXZZ/Screenshot-2019-05-12-Screenshot-1.png" alt="Screenshot-2019-05-08-Screenshot" border="0">
